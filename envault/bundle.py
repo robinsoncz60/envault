@@ -1,11 +1,11 @@
-"""Bundle: pack/unpack encrypted .env payloads with metadata."""
+"""Bundle: serialise/deserialise encrypted .env payloads for storage."""
 
 from __future__ import annotations
 
-import json
 import base64
-from dataclasses import dataclass, asdict
-from typing import Optional
+import json
+from dataclasses import dataclass
+from typing import Any, Dict
 
 
 class BundleError(Exception):
@@ -14,41 +14,47 @@ class BundleError(Exception):
 
 @dataclass
 class EnvBundle:
-    """An encrypted .env payload with associated metadata."""
-
-    environment: str
-    version: str
     ciphertext: bytes
-    public_key: str
-    comment: Optional[str] = None
+    env_name: str
+    version: str
 
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        d["ciphertext"] = base64.b64encode(self.ciphertext).decode()
-        return d
+    # ------------------------------------------------------------------
+    # serialisation
+    # ------------------------------------------------------------------
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "env_name": self.env_name,
+            "version": self.version,
+            "ciphertext": base64.b64encode(self.ciphertext).decode(),
+        }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EnvBundle":
+    def from_dict(cls, data: Dict[str, Any]) -> "EnvBundle":
         try:
-            data = dict(data)
-            data["ciphertext"] = base64.b64decode(data["ciphertext"])
-            return cls(**data)
-        except (KeyError, TypeError, ValueError) as exc:
+            return cls(
+                env_name=data["env_name"],
+                version=data["version"],
+                ciphertext=base64.b64decode(data["ciphertext"]),
+            )
+        except KeyError as exc:
+            raise BundleError(f"Missing field in bundle: {exc}") from exc
+        except Exception as exc:
             raise BundleError(f"Invalid bundle data: {exc}") from exc
 
 
 def encode_bundle(bundle: EnvBundle) -> bytes:
-    """Serialize a bundle to JSON bytes."""
+    """Serialise *bundle* to JSON bytes."""
     try:
-        return json.dumps(bundle.to_dict(), indent=2).encode()
-    except (TypeError, ValueError) as exc:
+        return json.dumps(bundle.to_dict()).encode()
+    except Exception as exc:
         raise BundleError(f"Failed to encode bundle: {exc}") from exc
 
 
-def decode_bundle(data: bytes) -> EnvBundle:
-    """Deserialize a bundle from JSON bytes."""
+def decode_bundle(raw: bytes) -> EnvBundle:
+    """Deserialise *raw* JSON bytes into an :class:`EnvBundle`."""
     try:
-        raw = json.loads(data.decode())
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise BundleError(f"Failed to decode bundle: {exc}") from exc
-    return EnvBundle.from_dict(raw)
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise BundleError(f"Bundle is not valid JSON: {exc}") from exc
+    return EnvBundle.from_dict(data)
