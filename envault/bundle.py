@@ -57,4 +57,8 @@ def decode_bundle(raw: bytes) -> EnvBundle:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise BundleError(f"Bundle is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise BundleError(
+            f"Bundle must be a JSON object, got {type(data).__name__}"
+        )
     return EnvBundle.from_dict(data)
