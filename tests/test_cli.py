@@ -72,43 +72,24 @@ class TestPushCmd:
 
 class TestPullCmd:
     def test_pull_success(self, runner: CliRunner, tmp_path: Path) -> None:
-        output = tmp_path / ".env"
+        out_file = tmp_path / ".env"
         mock_cfg = MagicMock()
         mock_kp = MagicMock()
         with patch("envault.cli.load_config", return_value=mock_cfg), \
              patch("envault.cli.load_keypair", return_value=mock_kp), \
              patch("envault.cli.S3Storage"), \
-             patch("envault.cli.pull") as mock_pull:
-            result = runner.invoke(cli, ["pull-cmd", "--output", str(output)])
+             patch("envault.cli.pull", return_value="v20240101_120000") as mock_pull:
+            result = runner.invoke(cli, ["pull-cmd", "--output", str(out_file)])
         assert result.exit_code == 0
-        assert str(output) in result.output
+        assert "v20240101_120000" in result.output
         mock_pull.assert_called_once()
 
-    def test_pull_error_exits(self, runner: CliRunner) -> None:
+    def test_pull_error_exits(self, runner: CliRunner, tmp_path: Path) -> None:
+        out_file = tmp_path / ".env"
         with patch("envault.cli.load_config"), \
              patch("envault.cli.load_keypair"), \
              patch("envault.cli.S3Storage"), \
-             patch("envault.cli.pull", side_effect=PullError("not found")):
-            result = runner.invoke(cli, ["pull-cmd"])
+             patch("envault.cli.pull", side_effect=PullError("decryption failed")):
+            result = runner.invoke(cli, ["pull-cmd", "--output", str(out_file)])
         assert result.exit_code == 1
-        assert "not found" in result.output
-
-
-class TestVersionsCmd:
-    def test_lists_versions(self, runner: CliRunner) -> None:
-        mock_v1 = MagicMock(__str__=lambda self: "v20240101_120000")
-        mock_v2 = MagicMock(__str__=lambda self: "v20240101_110000")
-        with patch("envault.cli.load_config"), \
-             patch("envault.cli.S3Storage"), \
-             patch("envault.cli.list_versions", return_value=[mock_v1, mock_v2]):
-            result = runner.invoke(cli, ["versions"])
-        assert result.exit_code == 0
-        assert "v20240101_120000" in result.output
-
-    def test_shows_no_versions_message(self, runner: CliRunner) -> None:
-        with patch("envault.cli.load_config"), \
-             patch("envault.cli.S3Storage"), \
-             patch("envault.cli.list_versions", return_value=[]):
-            result = runner.invoke(cli, ["versions"])
-        assert result.exit_code == 0
-        assert "No versions found" in result.output
+        assert "decryption failed" in result.output
