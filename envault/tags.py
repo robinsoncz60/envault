@@ -18,6 +18,18 @@ class TagError(Exception):
 
 
 _TAG_INDEX_KEY = ".envault/tags.json"
+_VALID_TAG_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+
+
+def _validate_tag_name(name: str) -> None:
+    """Raise TagError if the tag name is empty or contains invalid characters."""
+    if not name:
+        raise TagError("Tag name must not be empty")
+    invalid = set(name) - _VALID_TAG_CHARS
+    if invalid:
+        raise TagError(
+            f"Tag name {name!r} contains invalid characters: {sorted(invalid)}"
+        )
 
 
 @dataclass
@@ -62,6 +74,7 @@ def _save_index(storage: S3Storage, index: Dict[str, Dict]) -> None:
 
 def set_tag(storage: S3Storage, name: str, version_key: str, message: Optional[str] = None) -> Tag:
     """Create or update a tag pointing to version_key."""
+    _validate_tag_name(name)
     index = _load_index(storage)
     tag = Tag(name=name, version_key=version_key, message=message)
     index[name] = tag.to_dict()
