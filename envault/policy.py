@@ -51,11 +51,24 @@ class Policy:
     rules: List[PolicyRule] = field(default_factory=list)
 
     def is_allowed(self, principal: str, action: str) -> bool:
-        """Return True if *principal* is permitted to perform *action*."""
+        """Return True if *principal* is permitted to perform *action*.
+
+        Rules are evaluated in order; the first matching rule wins.
+        A wildcard principal (``"*"``) matches any principal.
+        """
         for rule in self.rules:
             if rule.principal in (principal, "*") and action in rule.actions:
                 return rule.allow
         return False
+
+    def add_rule(self, rule: PolicyRule) -> None:
+        """Append *rule* to the policy, replacing any existing rule for the same principal.
+
+        If a rule already exists for *rule.principal*, it is removed before
+        appending the new one so that the latest definition always takes effect.
+        """
+        self.rules = [r for r in self.rules if r.principal != rule.principal]
+        self.rules.append(rule)
 
     def to_dict(self) -> dict:
         return {"env": self.env, "rules": [r.to_dict() for r in self.rules]}
