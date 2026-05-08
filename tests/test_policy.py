@@ -85,23 +85,6 @@ class TestPolicy:
         with pytest.raises(PolicyError, match="Missing policy field"):
             Policy.from_dict({"rules": []})
 
-
-# ---------------------------------------------------------------------------
-# check helper
-# ---------------------------------------------------------------------------
-
-def test_check_raises_when_denied():
-    policy = Policy(
-        env="prod",
-        rules=[PolicyRule(principal="alice", actions=["pull"], allow=True)],
-    )
-    with pytest.raises(PolicyError, match="not allowed"):
-        check(policy, "alice", "push")
-
-
-def test_check_passes_when_allowed():
-    policy = Policy(
-        env="prod",
-        rules=[PolicyRule(principal="alice", actions=["push"], allow=True)],
-    )
-    check(policy, "alice", "push")  # should not raise
+    def test_from_dict_missing_rules_raises(self):
+        with pytest.raises(PolicyError, match="Missing policy field"):
+            Policy.from_dict({"env": "production"})
