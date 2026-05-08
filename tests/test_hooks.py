@@ -74,6 +74,17 @@ class TestRunHooks:
             with pytest.raises(HookError, match="exit 1"):
                 run_hooks(["bad-command"])
 
+    def test_hook_error_includes_stderr_in_message(self):
+        """HookError message should surface stderr so users know what went wrong."""
+        stderr_output = "fatal: not a git repository"
+        with patch(
+            "envault.hooks.subprocess.run",
+            return_value=_make_completed(128, stderr=stderr_output),
+        ):
+            with pytest.raises(HookError) as exc_info:
+                run_hooks(["git push"])
+            assert stderr_output in str(exc_info.value)
+
     def test_raises_hook_error_when_command_not_found(self):
         with patch(
             "envault.hooks.subprocess.run",
@@ -85,13 +96,4 @@ class TestRunHooks:
     def test_stops_at_first_failing_command(self):
         call_count = 0
 
-        def fake_run(cmd, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            return _make_completed(1)
-
-        with patch("envault.hooks.subprocess.run", side_effect=fake_run):
-            with pytest.raises(HookError):
-                run_hooks(["fail", "should-not-run"])
-
-        assert call_count == 1
+        def fake_run(cmd, 
