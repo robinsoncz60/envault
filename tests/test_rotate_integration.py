@@ -50,3 +50,14 @@ def test_full_rotate_chain(mock_lv, mock_mv, mock_decode, mock_dec, mock_enc, mo
 
     # upload called once with correct key
     storage.upload.assert_called_once_with("staging/20990101T120000Z.bundle", b"encoded")
+
+
+@patch("envault.rotate.latest_version", side_effect=Exception("no versions found"))
+def test_rotate_raises_rotate_error_when_no_latest_version(mock_lv):
+    """rotate() should surface a RotateError when latest_version fails."""
+    storage = MagicMock()
+    old_kp = _kp()
+    new_kp = _kp()
+
+    with pytest.raises(RotateError):
+        rotate(_config(), storage, old_kp, new_kp, "alice")
